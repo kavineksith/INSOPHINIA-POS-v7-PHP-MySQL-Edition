@@ -1,0 +1,13 @@
+# INSOPHINIA POS v7 — Apache config at project root
+# (Used when /public is the docroot — this file lives one level above)
+
+# Block access to sensitive directories
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^config/ - [F]
+    RewriteRule ^storage/ - [F]
+    RewriteRule ^app/ - [F]
+    RewriteRule ^vendor/ - [F]
+</IfModule>
+
+Options -Indexes

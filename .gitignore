@@ -1,0 +1,18 @@
+# Local environment file (gitignored — copy from .env.example)
+.env
+
+# Local config (use environment variables via docker-compose instead)
+config/config.php
+
+# Composer vendor (installed inside the image)
+vendor/
+
+# Storage runtime
+storage/temp_pdfs/*
+storage/logs/*
+storage/cache/*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp

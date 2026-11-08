@@ -1,0 +1,8 @@
+/* INSOPHINIA POS v7 — Bill print CSS (for thermal receipts via window.print) */
+
+@media print {
+    @page { size: 80mm auto; margin: 2mm; }
+    body { width: 76mm; margin: 0 auto; padding: 0; font-family: 'Geist Mono', 'Courier New', monospace; font-size: 11px; color: #000; background: white; }
+    body * { visibility: visible; }
+    .no-print { display: none !important; }
+}

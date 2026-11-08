@@ -1,0 +1,131 @@
+# ============================================================================
+# INSOPHINIA POS v7 — Docker Compose
+# ----------------------------------------------------------------------------
+# Three services:
+#   app        — PHP 8.2 + Apache (your POS app)         :8080 on host
+#   mysql      — MySQL 8.0 database (persistent volume)  :3306 (internal)
+#   phpmyadmin — Web UI for MySQL                        :8081 on host
+#
+# Works with both `docker compose` and `podman-compose`.
+#
+# Usage:
+#   1. cp .env.example .env  (then edit DB passwords)
+#   2. docker compose up -d --build
+#      (or: podman-compose up -d --build)
+#   3. Visit http://localhost:8080  → POS app
+#      Visit http://localhost:8081  → phpMyAdmin
+#   4. Login: master / Master@Admin123!
+# ============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: insophinia-app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    environment:
+      # Database — must match mysql service below
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-insophinia_pos}
+      DB_USER: ${DB_USER:-insophinia}
+      DB_PASS: ${DB_PASS:-change-this-password}
+      # JWT secret — generate with: php -r "echo bin2hex(random_bytes(32));"
+      JWT_SECRET: ${JWT_SECRET:-CHANGE_ME_TO_A_LONG_RANDOM_SECRET_KEY_AT_LEAST_64_CHARS_LONG_xxxxxxxxxxxxx}
+      JWT_EXPIRATION: 3600
+      BCRYPT_ROUNDS: 12
+      # App config
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Asia/Colombo}
+      COOKIE_SECURE: "false"
+      # Email (optional — disabled by default)
+      EMAIL_ENABLED: "false"
+      EMAIL_HOST: smtp.example.com
+      EMAIL_PORT: "587"
+      EMAIL_USERNAME: ""
+      EMAIL_PASSWORD: ""
+      EMAIL_SECURE: tls
+      EMAIL_FROM: "INSOPHINIA <noreply@insophinia.lk>"
+      # Seed admin credentials
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME:-master}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-Master@Admin123!}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-master@insophinia.lk}
+    volumes:
+      # Persist uploaded PDFs, logs, cache across container restarts
+      - app-storage:/var/www/html/storage
+      # Optional: bind-mount your custom config (commented out by default)
+      # - ./config/config.php:/var/www/html/config/config.php:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - insophinia-net
+
+  mysql:
+    image: mysql:8.0
+    container_name: insophinia-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-password-change-me}
+      MYSQL_DATABASE: ${DB_NAME:-insophinia_pos}
+      MYSQL_USER: ${DB_USER:-insophinia}
+      MYSQL_PASSWORD: ${DB_PASS:-change-this-password}
+      # Force utf8mb4 (matching install.sql)
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
+    volumes:
+      # Persist DB data
+      - mysql-data:/var/lib/mysql
+      # First-run init: install.sql runs automatically when DB is empty
+      - ./install.sql:/docker-entrypoint-initdb.d/01-install.sql:ro
+    ports:
+      # Expose MySQL on host too (for external tools / backups)
+      - "${MYSQL_PORT:-3306}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - insophinia-net
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: insophinia-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root-password-change-me}
+      UPLOAD_LIMIT: 64M
+      # Hide the server-selection dropdown (single server only)
+      PMA_CONTROLUSER: ""
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - insophinia-net
+
+volumes:
+  app-storage:
+    driver: local
+  mysql-data:
+    driver: local
+
+networks:
+  insophinia-net:
+    driver: bridge
