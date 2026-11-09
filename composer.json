@@ -12,7 +12,7 @@
         "ext-openssl": "*",
         "ext-json": "*",
         "ext-zlib": "*",
-        "firebase/php-jwt": "^6.10",
+        "firebase/php-jwt": "^7.0",
         "phpmailer/phpmailer": "^6.9",
         "mpdf/mpdf": "^8.2",
         "ramsey/uuid": "^4.7",
